@@ -24,11 +24,12 @@ var (
 	CARD_HOUSE_REV_MAP = map[House]string{HEARTS: "hearts", DIAMONDS: "diamonds", CLUBS: "clubs", SPADES: "spades"}
 )
 
-func create_deck(data_deck card_deck) Deck {
-
+func create_deck(data_deck card_deck, numCards int) Deck {
 	deck := Deck{}
-
 	for _, card := range data_deck.Cards {
+		if len(deck.cards) > numCards {
+			break
+		}
 		c := Card{}
 		c.symbol = card.Value
 		if v, err := strconv.Atoi(card.Value); err != nil {

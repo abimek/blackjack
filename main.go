@@ -4,29 +4,28 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 )
 
-type BlackJack struct {
-	dealer  Player
-	players []*Player
-	deck    Deck
-}
+var reset = false
 
 func main() {
-	deck := create_deck(read_deck("card_deck.json"))
-	players := make([]*Player, 0, 10)
+	deck := create_deck(read_deck("card_deck.json"), 52)
 	dealer := Player{}
-	players = setup(players)
+	players := setup()
 	print(len(players))
 	start(&deck, players, &dealer)
 }
 
-func setup(players []*Player) []*Player {
-	fmt.Println("Game Instructions: To hit use (H), to pass press (S: Per User)")
+func setup() []*Player {
+	players := make([]*Player, 0, 10)
+	fmt.Println("Welcome to a custom take on blackjack with infinite cards (Choose weather its best for you to reset the deck or not for the number you want)")
+	fmt.Println("When resetting the deck, the number of cards in the deck will now range between 30 and 52 being randomly selected, but it will be the first n values of the deck")
+	fmt.Println("Game Instructions: To hit use (H), to stand press (S), to reset the deck press (R)")
 	reader := bufio.NewReader(os.Stdin)
 	var v int
 	for {
@@ -60,11 +59,10 @@ func start(deck *Deck, players []*Player, dealer *Player) {
 
 func gameLoop(deck *Deck, players []*Player) {
 	stopped := 0
-out:
 	for {
 		for _, p := range players {
 			if stopped == len(players) {
-				break out
+				return
 			}
 			if p.standing || p.busted() {
 				continue
@@ -72,24 +70,34 @@ out:
 			reader := bufio.NewReader(os.Stdin)
 			for {
 				fmt.Printf("Player %d turn with a deck value of %d\n", p.playerNumber, p.runningTotal())
-				fmt.Printf("Type (s) to stand and (h) to hit\n")
+				fmt.Printf("Type (s) to stand, (h) to hit, and (r) to reset the deck\n")
 				move, err := reader.ReadString('\n')
 				move = strings.TrimSuffix(move, "\r\n")
 				if err != nil {
 					log.Fatal("error reading in string")
 				}
 				time.Sleep(time.Millisecond * 500)
-				if move == "h" || move == "s" {
+				if move == "h" || move == "s" || move == "r" {
 					if move == "h" {
 						p.giveCard(deck.randomCardAndRemove(), false, false)
+						fmt.Printf("Deck length is %d\n", len(deck.cards))
 						if p.busted() {
-							fmt.Printf("Player %d has busted with a deck value of %d\n", p.playerNumber, p.runningTotal())
+							fmt.Printf("Player %d has busted with a deck(len %d) value of %d\n", p.playerNumber, len(deck.cards), p.runningTotal())
 							stopped += 1
 						}
-					} else {
+					} else if move == "s" {
 						p.stand()
 						stopped += 1
 						fmt.Printf("Player %d has stood\n", p.playerNumber)
+					} else {
+						if reset == false {
+							*deck = create_deck(read_deck("card_deck.json"), 30+rand.Intn(12))
+							fmt.Printf("Player %d has used the only reset in the game and a deck length of %d was selected!\n", p.playerNumber, len(deck.cards))
+							reset = true
+						} else {
+							fmt.Println("Reset has already been used")
+							continue
+						}
 					}
 					break
 				} else {
@@ -111,17 +119,15 @@ func dealerFinal(deck *Deck, dealer *Player) {
 }
 
 func broadcastWinners(deck *Deck, players []*Player, dealer *Player) {
-	winners := make([]*Player, 0, len(players))
+	winners := 0
 	for _, p := range players {
 		if !p.busted() && p.runningTotal() > dealer.runningTotal() {
-			winners = append(winners, p)
+			fmt.Printf("Player %d has beat the dealer with a deck value of %d\n", p.playerNumber, p.runningTotal())
+			time.Sleep(time.Millisecond * 500)
+			winners++
 		}
 	}
-	for _, p := range winners {
-		fmt.Printf("Player %d has beat the dealer with a deck value of %d\n", p.playerNumber, p.runningTotal())
-		time.Sleep(time.Millisecond * 500)
-	}
-	if len(winners) == 0 {
+	if winners == 0 {
 		fmt.Println("Noone has beat the dealer\n")
 	}
 }
